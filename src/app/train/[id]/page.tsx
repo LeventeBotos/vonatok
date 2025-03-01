@@ -11,30 +11,24 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-interface TrainDetailPageProps {
-  params: {
-    id: string;
-  };
-}
-
-// Use async function directly in server component context
+// No need to define 'TrainDetailPageProps' explicitly anymore
 export default async function TrainDetailPage({
   params,
-}: TrainDetailPageProps) {
+}: {
+  params: { id: string };
+}) {
   const trainId = Number.parseInt(params.id);
 
   if (isNaN(trainId)) {
-    return notFound(); // Handling invalid ID
+    return notFound();
   }
 
-  // Fetch the train data from the server
   const train = await getTrainById(trainId);
 
   if (!train) {
-    return notFound(); // Train not found
+    return notFound();
   }
 
-  // Fetch associated coaches and locomotive
   const coaches = await getCoachesByIds(train.kocsiidk || []);
   const locomotive = await getLocomotiveById(train.mozdonyid);
 
