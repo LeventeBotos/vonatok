@@ -17,21 +17,24 @@ interface TrainDetailPageProps {
   };
 }
 
+// Use async function directly in server component context
 export default async function TrainDetailPage({
   params,
 }: TrainDetailPageProps) {
   const trainId = Number.parseInt(params.id);
 
   if (isNaN(trainId)) {
-    return notFound();
+    return notFound(); // Handling invalid ID
   }
 
+  // Fetch the train data from the server
   const train = await getTrainById(trainId);
 
   if (!train) {
-    return notFound();
+    return notFound(); // Train not found
   }
 
+  // Fetch associated coaches and locomotive
   const coaches = await getCoachesByIds(train.kocsiidk || []);
   const locomotive = await getLocomotiveById(train.mozdonyid);
 
