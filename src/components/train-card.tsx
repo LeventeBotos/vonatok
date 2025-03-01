@@ -16,7 +16,7 @@ export function TrainCard({ train }: TrainCardProps) {
           <TrainIcon size={20} />
           {train.megallok[0]}
         </CardTitle>
-        <CardDescription>Train ID: {train.vonatid}</CardDescription>
+        <CardDescription>{train.nev || train.vonatid}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="mb-4">

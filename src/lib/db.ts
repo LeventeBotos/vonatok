@@ -17,6 +17,7 @@ export interface Train {
   megallok: string[];
   kocsiidk: string[];
   mozdonyid: string;
+  nev: string
 }
 
 export interface Coach {
