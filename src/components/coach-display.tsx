@@ -33,7 +33,7 @@ export function CoachDisplay({ coach }: CoachDisplayProps) {
             <div>{coach.sebesseg} km/h</div>
 
             <div className="font-medium">Climate:</div>
-            <div>{coach.klima === "t" ? "Yes" : "No"}</div>
+            <div>{coach.klima === true ? "Yes" : "No"}</div>
 
             <div className="font-medium">Seats:</div>
             <div>{coach.ulohelyek}</div>

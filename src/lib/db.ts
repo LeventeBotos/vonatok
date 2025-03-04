@@ -29,7 +29,7 @@ export interface Coach {
   kocsiosztaly: string;
   utaster: string;
   sebesseg: number;
-  klima: string;
+  klima: boolean;
   ulohelyek: string;
 }
 

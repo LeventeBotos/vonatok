@@ -63,6 +63,18 @@ export default async function TrainDetailPage({
           </div>
         </div>
 
+        <div className="flex w-full overflow-x-auto flex-row gap-0 py-10 items-end">
+          {locomotive && (
+            <img src={locomotive.imageurl || ""} alt={locomotive.mozdonyid} />
+          )}
+          {coaches.map((coach, index: number) => (
+            <img
+              key={`${index}.kocsi - ${coach.kocsiid}`}
+              src={coach.imageurl || ""}
+              alt={coach.kocsiid}
+            />
+          ))}
+        </div>
         {locomotive && (
           <div className="mb-8">
             <h2 className="text-xl font-semibold mb-4">Locomotive</h2>
@@ -75,8 +87,11 @@ export default async function TrainDetailPage({
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Coaches</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {coaches.map((coach) => (
-              <CoachDisplay key={coach.kocsiid} coach={coach} />
+            {coaches.map((coach, index) => (
+              <CoachDisplay
+                key={`${index}.kocsi - ${coach.kocsiid} továbbiakban`}
+                coach={coach}
+              />
             ))}
           </div>
         </div>

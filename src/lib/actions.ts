@@ -26,10 +26,29 @@ export async function getLocomotiveById(id: string): Promise<Locomotive | null> 
   return locomotives.length > 0 ? locomotives[0] : null
 }
 
+
+// export async function getCoachesByIds(ids: string[]): Promise<Coach[]> {
+//   if (ids.length === 0) return [];
+  
+//   // Use sql.unsafe for dynamic IN clause
+//   const result = await sql(`SELECT * FROM kocsik WHERE kocsiid IN (${ids.map((_, i) => `$${i + 1}`).join(',')})`, ids);
+//   return castResult<Coach[]>(result);
+// }
+
 export async function getCoachesByIds(ids: string[]): Promise<Coach[]> {
   if (ids.length === 0) return [];
   
-  // Use sql.unsafe for dynamic IN clause
-  const result = await sql(`SELECT * FROM kocsik WHERE kocsiid IN (${ids.map((_, i) => `$${i + 1}`).join(',')})`, ids);
+  // Create a query with UNION ALL to ensure duplicate kocsiid are returned
+  const query = `
+    ${ids.map((_, i) => `
+      SELECT * 
+      FROM kocsik 
+      WHERE kocsiid = $${i + 1}
+    `).join(' UNION ALL ')}
+  `;
+  
+  // Passing the `ids` directly as parameters
+  const result = await sql(query, ids);
+  
   return castResult<Coach[]>(result);
 }
