@@ -11,13 +11,21 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-interface PageProps {
-  params: {
-    id: string;
-  };
-}
+type Params = {
+  id: string;
+};
 
-export default async function TrainDetailPage({ params }: PageProps) {
+type SearchParams = {
+  [key: string]: string | string[] | undefined;
+};
+
+export default async function TrainDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams?: SearchParams;
+}) {
   const trainId = Number.parseInt(params.id);
   if (isNaN(trainId)) {
     return notFound();
