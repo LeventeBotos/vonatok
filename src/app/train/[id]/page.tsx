@@ -64,13 +64,18 @@ export default async function Page({
 
         <div className="flex w-full overflow-x-auto flex-row gap-0 py-10 items-end">
           {locomotive && (
-            <img src={locomotive.imageurl || ""} alt={locomotive.mozdonyid} />
+            <img
+              src={locomotive.imageurl || ""}
+              alt={locomotive.mozdonyid}
+              crossOrigin="anonymous"
+            />
           )}
           {coaches.map((coach, index) => (
             <img
               key={`${index}.kocsi - ${coach.kocsiid}`}
               src={coach.imageurl || ""}
               alt={coach.kocsiid}
+              crossOrigin="anonymous"
             />
           ))}
         </div>
