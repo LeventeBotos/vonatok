@@ -10,23 +10,14 @@ import { LocomotiveDisplay } from "@/components/locomotive-display";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { Metadata } from "next";
-
-type PageProps = {
-  params: { id: string };
-};
-
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  return {
-    title: `Train Details - ${params.id}`,
-  };
-}
 
 // Use the simplest approach for page component
-export default async function Page({ params }: PageProps) {
-  const trainId = Number.parseInt(params.id);
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const trainId = Number.parseInt((await params).id);
 
   // Fetch the train using the string ID
   const train = await getTrainById(trainId);
