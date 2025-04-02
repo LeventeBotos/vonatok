@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import {
   getTrainById,
   getCoachesByIds,
@@ -15,17 +16,7 @@ type Params = {
   id: string;
 };
 
-type SearchParams = {
-  [key: string]: string | string[] | undefined;
-};
-
-export default async function TrainDetailPage({
-  params,
-  searchParams,
-}: {
-  params: Params;
-  searchParams?: SearchParams;
-}) {
+export default async function TrainDetailPage({ params }: { params: Params }) {
   const trainId = Number.parseInt(params.id);
   if (isNaN(trainId)) {
     return notFound();
@@ -71,16 +62,34 @@ export default async function TrainDetailPage({
         </div>
 
         <div className="flex w-full overflow-x-auto flex-row gap-0 py-10 items-end">
-          {locomotive && (
-            <img src={locomotive.imageurl || ""} alt={locomotive.mozdonyid} />
+          {locomotive && locomotive.imageurl && (
+            <div className="relative h-40 w-60">
+              <Image
+                src={locomotive.imageurl}
+                alt={`Locomotive ${locomotive.mozdonyid}`}
+                fill
+                className="object-contain"
+                sizes="(max-width: 768px) 100vw, 240px"
+              />
+            </div>
           )}
-          {coaches.map((coach, index: number) => (
-            <img
-              key={`${index}.kocsi - ${coach.kocsiid}`}
-              src={coach.imageurl || ""}
-              alt={coach.kocsiid}
-            />
-          ))}
+          {coaches.map(
+            (coach, index: number) =>
+              coach.imageurl && (
+                <div
+                  key={`${index}.kocsi - ${coach.kocsiid}`}
+                  className="relative h-40 w-60"
+                >
+                  <Image
+                    src={coach.imageurl}
+                    alt={`Coach ${coach.kocsiid}`}
+                    fill
+                    className="object-contain"
+                    sizes="(max-width: 768px) 100vw, 240px"
+                  />
+                </div>
+              )
+          )}
         </div>
 
         {locomotive && (
