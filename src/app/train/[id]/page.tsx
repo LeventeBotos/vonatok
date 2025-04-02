@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import {
   getTrainById,
   getCoachesByIds,
@@ -12,21 +11,23 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-type Params = {
-  id: string;
-};
+export default async function TrainDetailPage({
+  params,
+}: {
+  params: { id: number };
+}) {
+  // Use the id parameter directly as a string
+  const trainId = params.id;
 
-export default async function TrainDetailPage({ params }: { params: Params }) {
-  const trainId = Number.parseInt(params.id);
-  if (isNaN(trainId)) {
-    return notFound();
-  }
-
+  // Fetch the train using the string ID
   const train = await getTrainById(trainId);
+
+  // If no train is found, trigger a 404
   if (!train) {
     return notFound();
   }
 
+  // Fetch coaches and locomotive using IDs from the train object
   const coaches = await getCoachesByIds(train.kocsiidk || []);
   const locomotive = await getLocomotiveById(train.mozdonyid);
 
@@ -62,34 +63,16 @@ export default async function TrainDetailPage({ params }: { params: Params }) {
         </div>
 
         <div className="flex w-full overflow-x-auto flex-row gap-0 py-10 items-end">
-          {locomotive && locomotive.imageurl && (
-            <div className="relative h-40 w-60">
-              <Image
-                src={locomotive.imageurl}
-                alt={`Locomotive ${locomotive.mozdonyid}`}
-                fill
-                className="object-contain"
-                sizes="(max-width: 768px) 100vw, 240px"
-              />
-            </div>
+          {locomotive && (
+            <img src={locomotive.imageurl || ""} alt={locomotive.mozdonyid} />
           )}
-          {coaches.map(
-            (coach, index: number) =>
-              coach.imageurl && (
-                <div
-                  key={`${index}.kocsi - ${coach.kocsiid}`}
-                  className="relative h-40 w-60"
-                >
-                  <Image
-                    src={coach.imageurl}
-                    alt={`Coach ${coach.kocsiid}`}
-                    fill
-                    className="object-contain"
-                    sizes="(max-width: 768px) 100vw, 240px"
-                  />
-                </div>
-              )
-          )}
+          {coaches.map((coach, index) => (
+            <img
+              key={`${index}.kocsi - ${coach.kocsiid}`}
+              src={coach.imageurl || ""}
+              alt={coach.kocsiid}
+            />
+          ))}
         </div>
 
         {locomotive && (
@@ -106,17 +89,16 @@ export default async function TrainDetailPage({ params }: { params: Params }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {coaches.map((coach, index) => (
               <CoachDisplay
-                key={`${index}.kocsi - ${coach.kocsiid}`}
+                key={`${index}.kocsi - ${coach.kocsiid} továbbiakban`}
                 coach={coach}
               />
             ))}
           </div>
         </div>
       </main>
-
       <footer className="bg-muted py-4 text-center text-sm">
         <div className="container mx-auto">
-          &copy; {new Date().getFullYear()} Train Data Website
+          © {new Date().getFullYear()} Train Data Website
         </div>
       </footer>
     </div>
