@@ -4,7 +4,7 @@ import {
   getCoachesByIds,
   getLocomotiveById,
 } from "@/lib/actions";
-import { Header } from "@/components/header";
+// import { Header } from "@/components/header";
 import { CoachDisplay } from "@/components/coach-display";
 import { LocomotiveDisplay } from "@/components/locomotive-display";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +33,7 @@ export default async function Page({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      {/* <Header /> */}
       <main className="flex-1 container mx-auto py-8 px-4">
         <Link
           href="/"
@@ -101,11 +101,6 @@ export default async function Page({
           </div>
         </div>
       </main>
-      <footer className="bg-muted py-4 text-center text-sm">
-        <div className="container mx-auto">
-          © {new Date().getFullYear()} Train Data Website
-        </div>
-      </footer>
     </div>
   );
 }

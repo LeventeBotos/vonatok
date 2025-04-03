@@ -2,6 +2,7 @@ import type React from "react";
 import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Header } from "@/components/header";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,7 +18,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <Header />
+
+        <div>{children}</div>
+        {/* <footer className="bg-muted py-4 text-center text-sm">
+          <div className="container mx-auto">
+            &copy; {new Date().getFullYear()} Train Data Website
+          </div>
+        </footer> */}
+      </body>
     </html>
   );
 }

@@ -1,15 +1,19 @@
-import Link from "next/link"
-import { Train } from "lucide-react"
+import Link from "next/link";
+import { Plus, Train } from "lucide-react";
+import { Button } from "./ui/button";
 
 export function Header() {
   return (
     <header className="bg-primary text-primary-foreground py-4">
       <div className="container mx-auto flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2 text-xl font-bold">
+        <Link
+          href="/"
+          className="flex items-center space-x-2 text-xl font-bold"
+        >
           <Train size={24} />
-          <span>Train Data</span>
+          {/* <span>Jobb Menetrendek</span> */}
         </Link>
-        <nav>
+        {/* <nav>
           <ul className="flex space-x-4">
             <li>
               <Link href="/" className="hover:underline">
@@ -22,9 +26,13 @@ export function Header() {
               </Link>
             </li>
           </ul>
-        </nav>
+        </nav> */}
+        <Link href="/train/new">
+          <Button>
+            New Train <Plus />
+          </Button>
+        </Link>
       </div>
     </header>
-  )
+  );
 }
-

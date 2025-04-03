@@ -38,6 +38,7 @@ export interface Locomotive {
   sebesseg: number;
   gyarto: string;
   imageurl: string;
+  nev: string;
 }
 
 // import { neon, neonConfig } from '@neondatabase/serverless';

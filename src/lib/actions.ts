@@ -52,3 +52,34 @@ export async function getCoachesByIds(ids: string[]): Promise<Coach[]> {
   
   return castResult<Coach[]>(result);
 }
+
+export async function createNewTrain(vonatId:number,nev:string, vonatNem:string, mozdonyId: string, kocsiIdk: string[], megallok: string[]) {
+  const query = `
+    INSERT INTO vonatok (vonatId, nev, vonatnem, mozdonyid, kocsiidk, megallok) 
+    VALUES ($1, $2, $3, $4, $5, $6)
+  `;
+
+  const values = [
+    vonatId,
+    nev,
+    vonatNem, // Assuming `vonatnem` should be included, correct this if wrong
+    mozdonyId,
+    `{${kocsiIdk.map((id) => `"${id}"`).join(",")}}`, // Proper PostgreSQL array format
+    `{${megallok.map((stop) => `"${stop}"`).join(",")}}`
+  ];
+
+  console.log(values)
+  await sql(query, values);
+}
+
+
+export async function getAllCoaches(): Promise<Coach[]> {
+  const result = await sql`SELECT * FROM kocsik`
+  return castResult<Coach[]>(result)
+}
+
+export async function getAllLocomotives(): Promise<Locomotive[]> {
+  const result = await sql`SELECT * FROM mozdonyok`
+  return castResult<Locomotive[]>(result)
+}
+
