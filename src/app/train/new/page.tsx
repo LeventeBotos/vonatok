@@ -29,7 +29,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { AlertCircle, Check, ChevronRight, Plus, Train, X } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  ChevronRight,
+  Plus,
+  Train,
+  X,
+  GripVertical,
+  Trash2,
+  ChevronLeft,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export default function TrainCompositionMaker() {
@@ -47,6 +57,9 @@ export default function TrainCompositionMaker() {
   const [kocsiIdk, setKocsiIdk] = useState<string[]>([]);
   const [megallok, setMegallok] = useState<string[]>([]);
   const [megallo, setMegallo] = useState("");
+  // DnD state
+  const [dragCoachIndex, setDragCoachIndex] = useState<number | null>(null);
+  const [dragStopIndex, setDragStopIndex] = useState<number | null>(null);
 
   // State for UI
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -151,6 +164,27 @@ export default function TrainCompositionMaker() {
   // Remove a coach from the composition
   function removeCoach(index: number) {
     setKocsiIdk((prevKocsiIdk) => prevKocsiIdk.filter((_, i) => i !== index));
+  }
+
+  // Reorder helpers
+  function moveCoach(from: number, to: number) {
+    if (from === to) return;
+    setKocsiIdk((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  }
+
+  function moveStop(from: number, to: number) {
+    if (from === to) return;
+    setMegallok((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
   }
 
   // Get coach details by ID
@@ -309,13 +343,14 @@ export default function TrainCompositionMaker() {
                   }`}
                   onClick={() => setMozdonyId(locomotive.mozdonyid)}
                 >
-                  <div className="aspect-video relative overflow-hidden rounded-md mb-2">
+                  <div className="aspect-video relative rounded-md mb-2 bg-white">
                     <img
                       src={
                         locomotive.imageurl ||
                         "/placeholder.svg?height=100&width=200"
                       }
                       alt={locomotive.gyarto}
+                      className="object-contain w-full h-full"
                     />
                   </div>
                   <div className="text-center font-medium">
@@ -340,33 +375,44 @@ export default function TrainCompositionMaker() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
-              {availableCoaches.map((coach, index) => (
-                <div
-                  key={`${coach.kocsiid} ${index}`}
-                  className={`border rounded-lg p-3 cursor-pointer transition-all ${
-                    kocsiIdk.includes(coach.kocsiid)
-                      ? "ring-2 ring-primary bg-primary/5"
-                      : "hover:bg-gray-50"
-                  }`}
-                  onClick={() => addCoach(coach.kocsiid)}
-                >
-                  <div className="aspect-video relative overflow-hidden rounded-md mb-2">
-                    <img
-                      src={
-                        coach.imageurl ||
-                        "/placeholder.svg?height=100&width=200"
-                      }
-                      alt={coach.kocsiosztaly}
-                    />
+              {availableCoaches.map((coach, index) => {
+                const addedCount = kocsiIdk.filter(
+                  (id) => id === coach.kocsiid
+                ).length;
+                return (
+                  <div
+                    key={`${coach.kocsiid} ${index}`}
+                    className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                      kocsiIdk.includes(coach.kocsiid)
+                        ? "ring-2 ring-primary bg-primary/5"
+                        : "hover:bg-gray-50"
+                    }`}
+                    onClick={() => addCoach(coach.kocsiid)}
+                  >
+                    <div className="aspect-video relative rounded-md mb-2 bg-white">
+                      <img
+                        src={
+                          coach.imageurl ||
+                          "/placeholder.svg?height=100&width=200"
+                        }
+                        alt={coach.kocsiosztaly}
+                        className="object-contain w-full h-full"
+                      />
+                      {addedCount > 0 && (
+                        <div className="absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
+                          +{addedCount}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-center font-medium">
+                      Class {coach.kocsiosztaly}
+                    </div>
+                    <div className="text-center text-sm text-muted-foreground">
+                      {coach.utaster}
+                    </div>
                   </div>
-                  <div className="text-center font-medium">
-                    Class {coach.kocsiosztaly}
-                  </div>
-                  <div className="text-center text-sm text-muted-foreground">
-                    {coach.utaster}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -379,57 +425,128 @@ export default function TrainCompositionMaker() {
           <CardDescription>Visual representation of your train</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-row items-end overflow-x-auto pb-4">
-            {mozdonyId && (
-              <img
-                src={
-                  getLocomotiveById(mozdonyId)?.imageurl ||
-                  "/placeholder.svg?height=100&width=200"
-                }
-                alt="Locomotive"
-              />
-            )}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-row items-end overflow-x-auto pb-4 gap-0 min-h-32">
+              {mozdonyId && (
+                <div className="shrink-0">
+                  <img
+                    src={
+                      getLocomotiveById(mozdonyId)?.imageurl ||
+                      "/placeholder.svg?height=100&width=200"
+                    }
+                    alt="Locomotive"
+                    // className="h-16 object-contain block"
+                  />
+                </div>
+              )}
 
-            {kocsiIdk.map((coachId, index) => {
-              const coach = getCoachById(coachId);
-              return (
-                <img
-                  key={index}
-                  src={
-                    coach?.imageurl || "/placeholder.svg?height=100&width=200"
-                  }
-                  onClick={() => removeCoach(index)}
-                  alt={`Coach ${index + 1}`}
-                />
-              );
-            })}
+              {kocsiIdk.map((coachId, index) => {
+                const coach = getCoachById(coachId);
+                return (
+                  <div
+                    key={`${coachId}-${index}`}
+                    className={`group relative shrink-0 transition-all ${
+                      dragCoachIndex === index ? "ring-2 ring-primary/50" : ""
+                    }`}
+                    draggable
+                    onDragStart={() => setDragCoachIndex(index)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={() => {
+                      if (dragCoachIndex !== null) {
+                        moveCoach(dragCoachIndex, index);
+                        setDragCoachIndex(null);
+                      }
+                    }}
+                  >
+                    <div className="absolute -top-2 -left-2 hidden group-hover:flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveCoach(Math.max(0, index), Math.max(0, index - 1))
+                        }
+                        className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-white border shadow-sm hover:bg-muted"
+                        aria-label="Move left"
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          moveCoach(
+                            index,
+                            Math.min(kocsiIdk.length - 1, index + 1)
+                          )
+                        }
+                        className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-white border shadow-sm hover:bg-muted"
+                        aria-label="Move right"
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeCoach(index)}
+                        className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-white border shadow-sm hover:bg-red-50"
+                        aria-label="Remove coach"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                      </button>
+                    </div>
+                    <div className="mt-1 text-xs text-center text-muted-foreground">
+                      Coach {index + 1}
+                    </div>
+                    <img
+                      src={
+                        coach?.imageurl ||
+                        "/placeholder.svg?height=100&width=200"
+                      }
+                      alt={`Coach ${index + 1}`}
+                      // className="h-16 object-contain block"
+                    />
+                  </div>
+                );
+              })}
 
-            {!mozdonyId && kocsiIdk.length === 0 && (
-              <div className="flex items-center justify-center w-full py-8 text-muted-foreground">
-                <Train className="mr-2 h-5 w-5" />
-                Select a locomotive and coaches to preview your train
-                composition
+              {!mozdonyId && kocsiIdk.length === 0 && (
+                <div className="flex items-center justify-center w-full py-8 text-muted-foreground">
+                  <Train className="mr-2 h-5 w-5" />
+                  Select a locomotive and coaches to preview your train
+                  composition
+                </div>
+              )}
+            </div>
+
+            {megallok.length > 0 && (
+              <div className="mt-2">
+                <h3 className="font-medium mb-2">Route:</h3>
+                <div className="flex flex-wrap items-center gap-1">
+                  {megallok.map((stop, index) => (
+                    <div key={`${stop}-${index}`} className="flex items-center">
+                      <Badge
+                        variant="outline"
+                        className="mr-1 cursor-move"
+                        draggable
+                        onDragStart={() => setDragStopIndex(index)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragStopIndex !== null) {
+                            moveStop(dragStopIndex, index);
+                            setDragStopIndex(null);
+                          }
+                        }}
+                      >
+                        {stop}
+                      </Badge>
+                      {index < megallok.length - 1 && (
+                        <ChevronRight className="mr-1 text-gray-400 h-4 w-4" />
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
-
-          {megallok.length > 0 && (
-            <div className="mt-4">
-              <h3 className="font-medium mb-2">Route:</h3>
-              <div className="flex flex-wrap items-center">
-                {megallok.map((stop, index) => (
-                  <div key={index} className="flex items-center">
-                    <Badge variant="outline" className="mr-1">
-                      {stop}
-                    </Badge>
-                    {index < megallok.length - 1 && (
-                      <ChevronRight className="mr-1 text-gray-400 h-4 w-4" />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </CardContent>
         <CardFooter>
           {/* If you prefer the submit button outside the form, you can call handleSubmit without an event */}
