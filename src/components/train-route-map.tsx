@@ -13,7 +13,7 @@ import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-import type { Station } from "@/data/stations";
+import type { Station } from "@/models";
 
 const defaultCenter: LatLngExpression = [47.1625, 19.5033];
 
@@ -33,17 +33,22 @@ L.Icon.Default.mergeOptions({
 interface TrainRouteMapProps {
   stations: Station[];
   selectedStations: Station[];
-  onSelectStation: (station: Station) => void;
+  onSelectStation?: (station: Station) => void;
+  routeLine?: LatLngExpression[];
+  interactive?: boolean;
 }
 
 export function TrainRouteMap({
   stations,
   selectedStations,
   onSelectStation,
+  routeLine,
+  interactive = true,
 }: TrainRouteMapProps) {
-  const polylinePositions: LatLngExpression[] = selectedStations.map(
-    (station) => [station.latitude, station.longitude]
-  );
+  const polylinePositions: LatLngExpression[] =
+    routeLine && routeLine.length > 1
+      ? routeLine
+      : selectedStations.map((station) => [station.latitude, station.longitude]);
 
   return (
     <MapContainer
@@ -56,7 +61,10 @@ export function TrainRouteMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds selectedStations={selectedStations} />
+      <FitBounds
+        selectedStations={selectedStations}
+        polylinePositions={polylinePositions}
+      />
 
       {polylinePositions.length >= 2 && (
         <Polyline
@@ -73,9 +81,13 @@ export function TrainRouteMap({
           <Marker
             key={station.id}
             position={[station.latitude, station.longitude]}
-            eventHandlers={{
-              click: () => onSelectStation(station),
-            }}
+            eventHandlers={
+              interactive && onSelectStation
+                ? {
+                    click: () => onSelectStation(station),
+                  }
+                : undefined
+            }
           >
             <Tooltip direction="top" offset={[0, -8]}>
               <div className="space-y-1">
@@ -94,27 +106,34 @@ export function TrainRouteMap({
   );
 }
 
-function FitBounds({ selectedStations }: { selectedStations: Station[] }) {
+function FitBounds({
+  selectedStations,
+  polylinePositions,
+}: {
+  selectedStations: Station[];
+  polylinePositions: LatLngExpression[];
+}) {
   const map = useMap();
 
   useEffect(() => {
-    if (selectedStations.length === 0) {
+    const positions = polylinePositions.length
+      ? polylinePositions
+      : selectedStations.map((station) => [station.latitude, station.longitude]);
+
+    if (positions.length === 0) {
       map.setView(defaultCenter, 7);
       return;
     }
 
-    if (selectedStations.length === 1) {
-      const [station] = selectedStations;
-      map.setView([station.latitude, station.longitude], 10);
+    if (positions.length === 1) {
+      const [lat, lon] = positions[0] as [number, number];
+      map.setView([lat, lon], 10);
       return;
     }
 
-    const bounds = L.latLngBounds(
-      selectedStations.map((station) => [station.latitude, station.longitude])
-    );
+    const bounds = L.latLngBounds(positions as [number, number][]);
     map.fitBounds(bounds, { padding: [32, 32] });
-  }, [map, selectedStations]);
+  }, [map, selectedStations, polylinePositions]);
 
   return null;
 }
-

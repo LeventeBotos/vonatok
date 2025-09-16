@@ -3,7 +3,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   createNewTrain,
   getAllCoaches,
@@ -36,11 +36,51 @@ import {
   Plus,
   Train,
   X,
-  GripVertical,
   Trash2,
   ChevronLeft,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { TrainRouteMap } from "@/components/train-route-map";
+import type { Station } from "@/models";
+
+interface StationSearchResult {
+  id: string;
+  name: string;
+  displayName: string;
+  latitude: number;
+  longitude: number;
+  city?: string;
+  country?: string;
+}
+
+interface RouteEntry {
+  id: string;
+  name: string;
+  latitude?: number;
+  longitude?: number;
+  city?: string;
+  country?: string;
+}
+
+interface NominatimResponse {
+  osm_id: number;
+  osm_type: string;
+  display_name: string;
+  lat: string;
+  lon: string;
+  class: string;
+  type: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    state?: string;
+    county?: string;
+    country?: string;
+  };
+  name?: string;
+}
 
 export default function TrainCompositionMaker() {
   // State for available items
@@ -55,11 +95,15 @@ export default function TrainCompositionMaker() {
   const [vonatNem, setVonatNem] = useState("");
   const [mozdonyId, setMozdonyId] = useState("");
   const [kocsiIdk, setKocsiIdk] = useState<string[]>([]);
-  const [megallok, setMegallok] = useState<string[]>([]);
+  const [routeEntries, setRouteEntries] = useState<RouteEntry[]>([]);
   const [megallo, setMegallo] = useState("");
   // DnD state
   const [dragCoachIndex, setDragCoachIndex] = useState<number | null>(null);
   const [dragStopIndex, setDragStopIndex] = useState<number | null>(null);
+  const [stationQuery, setStationQuery] = useState("");
+  const [stationResults, setStationResults] = useState<StationSearchResult[]>([]);
+  const [isSearchingStations, setIsSearchingStations] = useState(false);
+  const [stationSearchError, setStationSearchError] = useState("");
 
   // State for UI
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,6 +124,55 @@ export default function TrainCompositionMaker() {
     }
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (!stationQuery.trim()) {
+      setStationResults([]);
+      setStationSearchError("");
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      try {
+        setIsSearchingStations(true);
+        setStationSearchError("");
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&q=${encodeURIComponent(
+            stationQuery
+          )}`,
+          {
+            headers: {
+              Accept: "application/json",
+              "User-Agent": "vonatok-app/1.0 (train-builder@example.com)",
+            },
+            signal: controller.signal,
+          }
+        );
+        if (!response.ok) {
+          throw new Error(`Station search failed with status ${response.status}`);
+        }
+        const payload = (await response.json()) as NominatimResponse[];
+        const mapped = payload
+          .map(mapNominatimToResult)
+          .filter((item): item is StationSearchResult => item !== null);
+        setStationResults(mapped);
+      } catch (fetchError) {
+        if (controller.signal.aborted) return;
+        console.error(fetchError);
+        setStationSearchError("Unable to fetch stations. Try again later.");
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsSearchingStations(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [stationQuery]);
 
   // Handle form submission; event is optional so it works with both onSubmit and onClick.
   async function handleSubmit(e?: React.FormEvent) {
@@ -107,7 +200,7 @@ export default function TrainCompositionMaker() {
       setError("Please add at least one coach");
       return;
     }
-    if (megallok.length === 0) {
+    if (routeEntries.length === 0) {
       setError("Please add at least one stop");
       return;
     }
@@ -121,7 +214,7 @@ export default function TrainCompositionMaker() {
         vonatNem,
         mozdonyId,
         kocsiIdk,
-        megallok
+        routeEntries.map((stop) => stop.name)
       );
       setSuccess(true);
 
@@ -132,7 +225,10 @@ export default function TrainCompositionMaker() {
         setVonatNem("");
         setMozdonyId("");
         setKocsiIdk([]);
-        setMegallok([]);
+        setRouteEntries([]);
+        setMegallo("");
+        setStationQuery("");
+        setStationResults([]);
         setSuccess(false);
       }, 3000);
     } catch (error: any) {
@@ -142,20 +238,52 @@ export default function TrainCompositionMaker() {
     }
   }
 
-  // Add a stop to the list
+  function addRouteEntry(entry: RouteEntry) {
+    setRouteEntries((prev) => {
+      if (
+        prev.some(
+          (existing) =>
+            existing.name === entry.name &&
+            existing.latitude === entry.latitude &&
+            existing.longitude === entry.longitude
+        )
+      ) {
+        return prev;
+      }
+      return [...prev, entry];
+    });
+  }
+
+  function addStopByName(stopName: string) {
+    const trimmed = stopName.trim();
+    if (!trimmed) return;
+    addRouteEntry({ id: `custom-${Date.now()}`, name: trimmed });
+  }
+
+  function addStopFromSearch(result: StationSearchResult) {
+    addRouteEntry({
+      id: result.id,
+      name: result.name,
+      latitude: result.latitude,
+      longitude: result.longitude,
+      city: result.city,
+      country: result.country,
+    });
+  }
+
+  // Add a stop to the list from the free-text input
   function addStop() {
-    if (megallo.trim() && !megallok.includes(megallo.trim())) {
-      setMegallok([...megallok, megallo.trim()]);
+    if (megallo.trim()) {
+      addStopByName(megallo.trim());
       setMegallo("");
     }
   }
 
-  // Remove a stop from the list
-  function removeStop(stop: string) {
-    setMegallok(megallok.filter((s) => s !== stop));
+  // Remove a stop from the list by index
+  function removeStop(index: number) {
+    setRouteEntries((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
   }
 
-  // Add a coach to the composition
   // Add a coach to the composition (allowing duplicates)
   function addCoach(coachId: string) {
     setKocsiIdk([...kocsiIdk, coachId]);
@@ -179,7 +307,7 @@ export default function TrainCompositionMaker() {
 
   function moveStop(from: number, to: number) {
     if (from === to) return;
-    setMegallok((prev) => {
+    setRouteEntries((prev) => {
       const next = [...prev];
       const [item] = next.splice(from, 1);
       next.splice(to, 0, item);
@@ -197,34 +325,96 @@ export default function TrainCompositionMaker() {
     return availableLocomotives.find((loco) => loco.mozdonyid === id);
   }
 
+  const recognizedRouteEntries = useMemo(
+    () =>
+      routeEntries.filter(
+        (entry) =>
+          typeof entry.latitude === "number" && typeof entry.longitude === "number"
+      ),
+    [routeEntries]
+  );
+
+  const unmatchedRouteNames = useMemo(
+    () =>
+      routeEntries
+        .filter(
+          (entry) =>
+            typeof entry.latitude !== "number" || typeof entry.longitude !== "number"
+        )
+        .map((entry) => entry.name),
+    [routeEntries]
+  );
+
+  const selectedStationsForMap = useMemo(
+    () =>
+      recognizedRouteEntries
+        .map(stationEntryToStation)
+        .filter((station): station is Station => station !== null),
+    [recognizedRouteEntries]
+  );
+
+  const stationsForMap = useMemo(() => {
+    const map = new Map<string, Station>();
+    for (const result of stationResults) {
+      const station = stationResultToStation(result);
+      map.set(station.id, station);
+    }
+    for (const station of selectedStationsForMap) {
+      map.set(station.id, station);
+    }
+    return Array.from(map.values());
+  }, [stationResults, selectedStationsForMap]);
+
+  function handleStationSelectedFromMap(station: Station) {
+    addRouteEntry({
+      id: station.id,
+      name: station.name,
+      latitude: station.latitude,
+      longitude: station.longitude,
+      city: station.city,
+      country: station.country,
+    });
+  }
+
+  const selectedLocomotive = mozdonyId ? getLocomotiveById(mozdonyId) : undefined;
+
   return (
-    <div className="container mx-auto py-8 px-4">
-      <h1 className="text-3xl font-bold mb-6 text-center">
-        Train Composition Maker
-      </h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+      <div className="container mx-auto px-4 py-12 space-y-10">
+        <div className="mx-auto max-w-3xl text-center space-y-4">
+          <Badge variant="secondary" className="mx-auto w-fit uppercase tracking-wide">
+            Build a new consist
+          </Badge>
+          <h1 className="text-3xl font-bold text-slate-900 sm:text-4xl">
+            Train Composition Maker
+          </h1>
+          <p className="text-base text-muted-foreground">
+            Assemble locomotives and coaches, plan the full route with live mapping, and review operational limits before creating your train.
+          </p>
+        </div>
 
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+        {error && (
+          <Alert variant="destructive" className="shadow-lg">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-      {success && (
-        <Alert className="mb-6 bg-green-50 border-green-200">
-          <Check className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Success</AlertTitle>
-          <AlertDescription className="text-green-700">
-            Train &quot;{nev}&quot; has been created successfully with ID:{" "}
-            {vonatId}!
-          </AlertDescription>
-        </Alert>
-      )}
+        {success && (
+          <Alert className="bg-green-50 border-green-200 shadow-lg">
+            <Check className="h-4 w-4 text-green-600" />
+            <AlertTitle className="text-green-800">Success</AlertTitle>
+            <AlertDescription className="text-green-700">
+              Train &quot;{nev}&quot; has been created successfully with ID:{" "}
+              {vonatId}!
+            </AlertDescription>
+          </Alert>
+        )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Train Details Form */}
-        <Card>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Train Details Form */}
+        <Card className="shadow-lg border-slate-200/70 bg-white/90">
           <CardHeader>
             <CardTitle>Train Details</CardTitle>
             <CardDescription>
@@ -290,17 +480,51 @@ export default function TrainCompositionMaker() {
                   </Button>
                 </div>
 
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="station-search">Search stations</Label>
+                  <Input
+                    id="station-search"
+                    value={stationQuery}
+                    onChange={(event) => setStationQuery(event.target.value)}
+                    placeholder="Search for stations worldwide"
+                  />
+                  {isSearchingStations && (
+                    <p className="text-xs text-muted-foreground">Searching stations…</p>
+                  )}
+                  {stationSearchError && (
+                    <p className="text-xs text-destructive">{stationSearchError}</p>
+                  )}
+                  {stationResults.length > 0 && (
+                    <div className="max-h-48 overflow-y-auto rounded-lg border">
+                      {stationResults.map((result) => (
+                        <button
+                          type="button"
+                          key={result.id}
+                          className="block w-full cursor-pointer px-3 py-2 text-left text-sm hover:bg-muted"
+                          onClick={() => addStopFromSearch(result)}
+                          title={result.displayName}
+                        >
+                          <div className="font-medium">{result.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {result.displayName}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {megallok.map((stop, index) => (
+                  {routeEntries.map((stop, index) => (
                     <Badge
-                      key={index}
+                      key={`${stop.id}-${index}`}
                       variant="secondary"
                       className="flex items-center gap-1"
                     >
-                      {stop}
+                      {stop.name}
                       <button
                         type="button"
-                        onClick={() => removeStop(stop)}
+                        onClick={() => removeStop(index)}
                         className="ml-1 rounded-full hover:bg-gray-200 p-0.5"
                       >
                         <X className="h-3 w-3" />
@@ -324,7 +548,7 @@ export default function TrainCompositionMaker() {
         </Card>
 
         {/* Locomotive Selection */}
-        <Card>
+        <Card className="shadow-lg border-slate-200/70 bg-white/90">
           <CardHeader>
             <CardTitle>Select Locomotive</CardTitle>
             <CardDescription>
@@ -341,6 +565,7 @@ export default function TrainCompositionMaker() {
                       ? "ring-2 ring-primary bg-primary/5"
                       : "hover:bg-gray-50"
                   }`}
+                  title={`${locomotive.nev} • ${locomotive.sebesseg} km/h • ${locomotive.gyarto}`}
                   onClick={() => setMozdonyId(locomotive.mozdonyid)}
                 >
                   <div className="aspect-video relative rounded-md mb-2 bg-white">
@@ -366,7 +591,7 @@ export default function TrainCompositionMaker() {
         </Card>
 
         {/* Coach Selection */}
-        <Card>
+        <Card className="shadow-lg border-slate-200/70 bg-white/90">
           <CardHeader>
             <CardTitle>Select Coaches</CardTitle>
             <CardDescription>
@@ -387,6 +612,7 @@ export default function TrainCompositionMaker() {
                         ? "ring-2 ring-primary bg-primary/5"
                         : "hover:bg-gray-50"
                     }`}
+                    title={`${coach.utaster} • ${coach.kocsiosztaly} • ${coach.sebesseg} km/h`}
                     onClick={() => addCoach(coach.kocsiid)}
                   >
                     <div className="aspect-video relative rounded-md mb-2 bg-white">
@@ -419,7 +645,7 @@ export default function TrainCompositionMaker() {
       </div>
 
       {/* Train Composition Preview */}
-      <Card className="mt-8">
+      <Card className="mt-8 shadow-xl border-slate-200/70 bg-white/95">
         <CardHeader>
           <CardTitle>Train Composition Preview</CardTitle>
           <CardDescription>Visual representation of your train</CardDescription>
@@ -427,14 +653,15 @@ export default function TrainCompositionMaker() {
         <CardContent>
           <div className="flex flex-col gap-4">
             <div className="flex flex-row items-end overflow-x-auto pb-4 gap-0 min-h-32">
-              {mozdonyId && (
+              {selectedLocomotive && (
                 <div className="shrink-0">
                   <img
                     src={
-                      getLocomotiveById(mozdonyId)?.imageurl ||
+                      selectedLocomotive.imageurl ||
                       "/placeholder.svg?height=100&width=200"
                     }
-                    alt="Locomotive"
+                    alt={selectedLocomotive.nev}
+                    title={`${selectedLocomotive.nev} • ${selectedLocomotive.sebesseg} km/h`}
                     // className="h-16 object-contain block"
                   />
                 </div>
@@ -502,6 +729,11 @@ export default function TrainCompositionMaker() {
                         "/placeholder.svg?height=100&width=200"
                       }
                       alt={`Coach ${index + 1}`}
+                      title={
+                        coach
+                          ? `${coach.kocsiosztaly} • ${coach.utaster} • ${coach.sebesseg} km/h`
+                          : "Coach"
+                      }
                       // className="h-16 object-contain block"
                     />
                   </div>
@@ -517,12 +749,12 @@ export default function TrainCompositionMaker() {
               )}
             </div>
 
-            {megallok.length > 0 && (
+            {routeEntries.length > 0 && (
               <div className="mt-2">
                 <h3 className="font-medium mb-2">Route:</h3>
                 <div className="flex flex-wrap items-center gap-1">
-                  {megallok.map((stop, index) => (
-                    <div key={`${stop}-${index}`} className="flex items-center">
+                  {routeEntries.map((stop, index) => (
+                    <div key={`${stop.id}-${index}`} className="flex items-center">
                       <Badge
                         variant="outline"
                         className="mr-1 cursor-move"
@@ -536,9 +768,9 @@ export default function TrainCompositionMaker() {
                           }
                         }}
                       >
-                        {stop}
+                        {stop.name}
                       </Badge>
-                      {index < megallok.length - 1 && (
+                      {index < routeEntries.length - 1 && (
                         <ChevronRight className="mr-1 text-gray-400 h-4 w-4" />
                       )}
                     </div>
@@ -559,8 +791,104 @@ export default function TrainCompositionMaker() {
           </Button>
         </CardFooter>
       </Card>
+
+      <Card className="mt-6 shadow-xl border-slate-200/70 bg-white/95">
+        <CardHeader>
+          <CardTitle>Route Map</CardTitle>
+          <CardDescription>
+            Visualize your selected stops and click map markers to add stations quickly.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <TrainRouteMap
+            stations={stationsForMap}
+            selectedStations={selectedStationsForMap}
+            onSelectStation={handleStationSelectedFromMap}
+          />
+
+          {selectedStationsForMap.length < 2 && (
+            <p className="text-sm text-muted-foreground">
+              Select at least two stations to draw the full route. Click markers on the map or use the selector above to add stops.
+            </p>
+          )}
+
+          {unmatchedRouteNames.length > 0 && (
+            <Alert>
+              <AlertTitle>Unrecognized stops</AlertTitle>
+              <AlertDescription>
+                These entries are not in the station library and won&apos;t appear on the map: {" "}
+                {unmatchedRouteNames.join(", ")}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+      </div>
     </div>
   );
+}
+
+function mapNominatimToResult(item: NominatimResponse): StationSearchResult | null {
+  const latitude = Number.parseFloat(item.lat);
+  const longitude = Number.parseFloat(item.lon);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  const primaryName = (item.name ?? item.display_name.split(",")[0] ?? "").trim();
+  if (!primaryName) return null;
+
+  const city =
+    item.address?.city ??
+    item.address?.town ??
+    item.address?.village ??
+    item.address?.municipality ??
+    item.address?.county ??
+    undefined;
+
+  return {
+    id: `${item.osm_type}-${item.osm_id}`,
+    name: primaryName,
+    displayName: item.display_name,
+    latitude,
+    longitude,
+    city,
+    country: item.address?.country ?? undefined,
+  };
+}
+
+function stationResultToStation(result: StationSearchResult): Station {
+  return {
+    id: result.id,
+    name: result.name,
+    latitude: result.latitude,
+    longitude: result.longitude,
+    region: result.city ?? "",
+    city: result.city ?? "",
+    country: result.country ?? "",
+    platformLengthMeters: 0,
+    tracks: 0,
+    amenities: [],
+  };
+}
+
+function stationEntryToStation(entry: RouteEntry): Station | null {
+  if (typeof entry.latitude !== "number" || typeof entry.longitude !== "number") {
+    return null;
+  }
+
+  return {
+    id: entry.id,
+    name: entry.name,
+    latitude: entry.latitude,
+    longitude: entry.longitude,
+    region: entry.city ?? "",
+    city: entry.city ?? "",
+    country: entry.country ?? "",
+    platformLengthMeters: 0,
+    tracks: 0,
+    amenities: [],
+  };
 }
 
 // /* eslint-disable @typescript-eslint/no-unused-vars */

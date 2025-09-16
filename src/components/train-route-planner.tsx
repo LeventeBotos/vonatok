@@ -4,7 +4,8 @@ import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, MapPin, Plus, X } from "lucide-react";
 
-import { stations, type Station } from "@/data/stations";
+import { stations } from "@/data/stations";
+import type { Station } from "@/models";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -217,4 +218,3 @@ export function TrainRoutePlanner({
     </div>
   );
 }
-

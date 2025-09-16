@@ -1,10 +1,4 @@
-export interface Station {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  region?: string;
-}
+import type { Station } from "@/models";
 
 export const stations: Station[] = [
   {
@@ -13,6 +7,12 @@ export const stations: Station[] = [
     latitude: 47.5009,
     longitude: 19.0833,
     region: "Budapest",
+    city: "Budapest",
+    country: "Hungary",
+    platformLengthMeters: 500,
+    elevationMeters: 130,
+    tracks: 18,
+    amenities: ["lounge", "shops", "restrooms"],
   },
   {
     id: "budapest-nyugati",
@@ -20,6 +20,12 @@ export const stations: Station[] = [
     latitude: 47.5105,
     longitude: 19.0564,
     region: "Budapest",
+    city: "Budapest",
+    country: "Hungary",
+    platformLengthMeters: 420,
+    elevationMeters: 115,
+    tracks: 17,
+    amenities: ["restrooms", "cafes"],
   },
   {
     id: "budapest-deli",
@@ -27,6 +33,12 @@ export const stations: Station[] = [
     latitude: 47.5002,
     longitude: 19.0239,
     region: "Budapest",
+    city: "Budapest",
+    country: "Hungary",
+    platformLengthMeters: 360,
+    elevationMeters: 140,
+    tracks: 12,
+    amenities: ["restrooms", "shops"],
   },
   {
     id: "gyor",
@@ -34,6 +46,12 @@ export const stations: Station[] = [
     latitude: 47.6849,
     longitude: 17.635,
     region: "Transdanubia",
+    city: "Gyor",
+    country: "Hungary",
+    platformLengthMeters: 420,
+    elevationMeters: 110,
+    tracks: 9,
+    amenities: ["bike storage", "restrooms"],
   },
   {
     id: "debrecen",
@@ -41,6 +59,12 @@ export const stations: Station[] = [
     latitude: 47.5299,
     longitude: 21.6227,
     region: "Great Plain",
+    city: "Debrecen",
+    country: "Hungary",
+    platformLengthMeters: 400,
+    elevationMeters: 121,
+    tracks: 10,
+    amenities: ["restrooms", "tickets"],
   },
   {
     id: "miskolc-tiszai",
@@ -48,6 +72,12 @@ export const stations: Station[] = [
     latitude: 48.1186,
     longitude: 20.8012,
     region: "Northern Hungary",
+    city: "Miskolc",
+    country: "Hungary",
+    platformLengthMeters: 380,
+    elevationMeters: 120,
+    tracks: 14,
+    amenities: ["shops", "restrooms"],
   },
   {
     id: "szeged",
@@ -55,6 +85,12 @@ export const stations: Station[] = [
     latitude: 46.253,
     longitude: 20.1414,
     region: "Great Plain",
+    city: "Szeged",
+    country: "Hungary",
+    platformLengthMeters: 360,
+    elevationMeters: 82,
+    tracks: 8,
+    amenities: ["restrooms", "bike storage"],
   },
   {
     id: "pecs",
@@ -62,6 +98,12 @@ export const stations: Station[] = [
     latitude: 46.0727,
     longitude: 18.2323,
     region: "Transdanubia",
+    city: "Pecs",
+    country: "Hungary",
+    platformLengthMeters: 340,
+    elevationMeters: 152,
+    tracks: 7,
+    amenities: ["shops"],
   },
   {
     id: "kecskemet",
@@ -69,6 +111,12 @@ export const stations: Station[] = [
     latitude: 46.9071,
     longitude: 19.6925,
     region: "Great Plain",
+    city: "Kecskemet",
+    country: "Hungary",
+    platformLengthMeters: 320,
+    elevationMeters: 105,
+    tracks: 6,
+    amenities: ["restrooms"],
   },
   {
     id: "siofok",
@@ -76,6 +124,12 @@ export const stations: Station[] = [
     latitude: 46.9052,
     longitude: 18.0584,
     region: "Lake Balaton",
+    city: "Siofok",
+    country: "Hungary",
+    platformLengthMeters: 280,
+    elevationMeters: 109,
+    tracks: 5,
+    amenities: ["restrooms", "cafes"],
   },
   {
     id: "szombathely",
@@ -83,6 +137,12 @@ export const stations: Station[] = [
     latitude: 47.2364,
     longitude: 16.6287,
     region: "Transdanubia",
+    city: "Szombathely",
+    country: "Hungary",
+    platformLengthMeters: 330,
+    elevationMeters: 200,
+    tracks: 8,
+    amenities: ["restrooms", "bike storage"],
   },
   {
     id: "tatabanya",
@@ -90,6 +150,12 @@ export const stations: Station[] = [
     latitude: 47.5696,
     longitude: 18.4038,
     region: "Transdanubia",
+    city: "Tatabanya",
+    country: "Hungary",
+    platformLengthMeters: 310,
+    elevationMeters: 137,
+    tracks: 6,
+    amenities: ["restrooms"],
   },
   {
     id: "veszprem",
@@ -97,6 +163,12 @@ export const stations: Station[] = [
     latitude: 47.1022,
     longitude: 17.9091,
     region: "Transdanubia",
+    city: "Veszprem",
+    country: "Hungary",
+    platformLengthMeters: 300,
+    elevationMeters: 255,
+    tracks: 5,
+    amenities: ["restrooms"],
   },
   {
     id: "nyiregyhaza",
@@ -104,6 +176,12 @@ export const stations: Station[] = [
     latitude: 47.955,
     longitude: 21.7173,
     region: "Great Plain",
+    city: "Nyiregyhaza",
+    country: "Hungary",
+    platformLengthMeters: 350,
+    elevationMeters: 96,
+    tracks: 9,
+    amenities: ["shops", "restrooms"],
   },
   {
     id: "eger",
@@ -111,6 +189,12 @@ export const stations: Station[] = [
     latitude: 47.9053,
     longitude: 20.3776,
     region: "Northern Hungary",
+    city: "Eger",
+    country: "Hungary",
+    platformLengthMeters: 260,
+    elevationMeters: 160,
+    tracks: 4,
+    amenities: ["restrooms"],
   },
   {
     id: "vac",
@@ -118,6 +202,12 @@ export const stations: Station[] = [
     latitude: 47.7833,
     longitude: 19.1353,
     region: "Central Hungary",
+    city: "Vac",
+    country: "Hungary",
+    platformLengthMeters: 290,
+    elevationMeters: 110,
+    tracks: 5,
+    amenities: ["bike storage"],
   },
   {
     id: "sopron",
@@ -125,6 +215,12 @@ export const stations: Station[] = [
     latitude: 47.6817,
     longitude: 16.5845,
     region: "Transdanubia",
+    city: "Sopron",
+    country: "Hungary",
+    platformLengthMeters: 340,
+    elevationMeters: 211,
+    tracks: 7,
+    amenities: ["restrooms", "duty free"]
   },
   {
     id: "zalaegerszeg",
@@ -132,6 +228,12 @@ export const stations: Station[] = [
     latitude: 46.8431,
     longitude: 16.851,
     region: "Transdanubia",
+    city: "Zalaegerszeg",
+    country: "Hungary",
+    platformLengthMeters: 280,
+    elevationMeters: 170,
+    tracks: 5,
+    amenities: ["restrooms"],
   },
   {
     id: "esztergom",
@@ -139,6 +241,12 @@ export const stations: Station[] = [
     latitude: 47.794,
     longitude: 18.7385,
     region: "Central Hungary",
+    city: "Esztergom",
+    country: "Hungary",
+    platformLengthMeters: 250,
+    elevationMeters: 112,
+    tracks: 4,
+    amenities: ["restrooms", "bike storage"],
   },
   {
     id: "bekescsaba",
@@ -146,6 +254,12 @@ export const stations: Station[] = [
     latitude: 46.6737,
     longitude: 21.0965,
     region: "Great Plain",
+    city: "Bekescsaba",
+    country: "Hungary",
+    platformLengthMeters: 320,
+    elevationMeters: 89,
+    tracks: 6,
+    amenities: ["restrooms"],
   },
   {
     id: "balatonfured",
@@ -153,6 +267,12 @@ export const stations: Station[] = [
     latitude: 46.9635,
     longitude: 17.8725,
     region: "Lake Balaton",
+    city: "Balatonfured",
+    country: "Hungary",
+    platformLengthMeters: 240,
+    elevationMeters: 112,
+    tracks: 3,
+    amenities: ["restrooms", "cafes"],
   },
   {
     id: "szekesfehervar",
@@ -160,6 +280,12 @@ export const stations: Station[] = [
     latitude: 47.186,
     longitude: 18.4221,
     region: "Transdanubia",
+    city: "Szekesfehervar",
+    country: "Hungary",
+    platformLengthMeters: 360,
+    elevationMeters: 118,
+    tracks: 8,
+    amenities: ["restrooms", "shops"],
   },
   {
     id: "hatvan",
@@ -167,6 +293,12 @@ export const stations: Station[] = [
     latitude: 47.6641,
     longitude: 19.6727,
     region: "Northern Hungary",
+    city: "Hatvan",
+    country: "Hungary",
+    platformLengthMeters: 300,
+    elevationMeters: 120,
+    tracks: 6,
+    amenities: ["restrooms"],
   },
 ];
 
@@ -178,4 +310,3 @@ export function findStationByName(name: string): Station | undefined {
 
   return stations.find((station) => station.name.toLowerCase() === normalized);
 }
-
