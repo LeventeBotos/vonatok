@@ -19,6 +19,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TrainRouteMap } from "@/components/train-route-map";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import {
+  calculateRailTimetableFromInfrastructure,
+  findRailStationByName,
+} from "@/lib/rail-infrastructure";
 
 interface GeocodedStop {
   name: string;
@@ -33,12 +37,6 @@ interface GeocodedStop {
 interface GeocodeResult {
   stations: GeocodedStop[];
   unmatched: string[];
-}
-
-interface RouteGeometryResult {
-  coordinates: [number, number][];
-  distanceMeters: number | null;
-  durationSeconds: number | null;
 }
 
 // Use the simplest approach for page component
@@ -77,11 +75,6 @@ export default async function Page({
     amenities: [],
   }));
 
-  const routeGeometry = await buildRouteGeometry(geocode.stations);
-  const routePolyline = routeGeometry.coordinates.map(
-    ([lat, lon]) => [lat, lon] as [number, number]
-  );
-
   const geocodedLookup = new Map(
     geocode.stations.map(
       (stop) => [stop.originalName.toLowerCase(), stop] as const
@@ -102,16 +95,39 @@ export default async function Page({
     ? `${lineSpeed} km/h`
     : "N/A";
 
-  const routeDistanceKm = routeGeometry.distanceMeters
-    ? routeGeometry.distanceMeters / 1000
-    : computeFallbackDistance(geocode.stations);
+  const infrastructureTimetable =
+    geocode.unmatched.length === 0
+      ? await calculateRailTimetableFromInfrastructure(
+          geocode.stations.map((station) => ({
+            name: station.originalName,
+            latitude: station.latitude,
+            longitude: station.longitude,
+          })),
+          {
+            maxTrainSpeedKph: Number.isFinite(lineSpeed) ? lineSpeed : undefined,
+            dwellMinutes: 2,
+          }
+        )
+      : null;
+
+  const infrastructureUsed = Boolean(infrastructureTimetable);
+
+  const routePolyline = infrastructureTimetable
+    ? infrastructureTimetable.coordinates.map(
+        ([lat, lon]) => [lat, lon] as [number, number]
+      )
+    : [];
+
+  const routeDistanceKm = infrastructureTimetable
+    ? infrastructureTimetable.totalDistanceMeters / 1000
+    : null;
 
   const routeDistanceDisplay = routeDistanceKm
     ? `${routeDistanceKm.toFixed(1)} km`
     : "N/A";
 
-  const durationMinutes = routeGeometry.durationSeconds
-    ? routeGeometry.durationSeconds / 60
+  const durationMinutes = infrastructureTimetable
+    ? infrastructureTimetable.durationSeconds / 60
     : null;
 
   const durationDisplay = durationMinutes
@@ -126,6 +142,8 @@ export default async function Page({
   const averageSpeedDisplay = averageSpeed
     ? `${averageSpeed.toFixed(1)} km/h`
     : "N/A";
+  const legPlans = infrastructureTimetable?.legPlans ?? [];
+  const stopPlans = infrastructureTimetable?.stopPlans ?? [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
@@ -186,6 +204,61 @@ export default async function Page({
 
         <Card className="shadow-lg border-slate-200/70 bg-white/95">
           <CardHeader>
+            <CardTitle>Track route plan</CardTitle>
+            <CardDescription>
+              OpenRailwayMap-based leg plan with switches and platform guidance.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!infrastructureUsed ? (
+              <p className="text-sm text-muted-foreground">
+                Route plan unavailable because the infrastructure path could not be fully resolved.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {legPlans.map((leg, index) => (
+                  <div key={`${leg.fromName}-${leg.toName}-${index}`} className="rounded-lg border bg-card p-3">
+                    <p className="font-medium text-sm">
+                      {index + 1}. {leg.fromName} → {leg.toName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {(leg.distanceMeters / 1000).toFixed(2)} km · {Math.round(leg.runningTimeSeconds / 60)} min · {leg.switchCount} switches
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Station snap: {Math.round(leg.fromSnapDistanceMeters)} m / {Math.round(leg.toSnapDistanceMeters)} m
+                    </p>
+                    {leg.lines.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Lines: {leg.lines.map(formatLineReference).join(" | ")}
+                      </p>
+                    )}
+                    {leg.switches.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Switch nodes: {leg.switches.map((sw) => formatSwitch(sw)).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                <div className="rounded-lg border bg-card p-3">
+                  <p className="font-medium text-sm mb-2">Platform guidance</p>
+                  <div className="space-y-1">
+                    {stopPlans.map((stop) => (
+                      <p key={stop.stopName} className="text-xs text-muted-foreground">
+                        {stop.stopName}: {stop.likelyPlatform ? `likely platform ${stop.likelyPlatform}` : "no platform data"}
+                        {typeof stop.snapDistanceMeters === "number"
+                          ? ` · snapped ${Math.round(stop.snapDistanceMeters)} m`
+                          : ""}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-lg border-slate-200/70 bg-white/95">
+          <CardHeader>
             <CardTitle>Stop itinerary</CardTitle>
             <CardDescription>
               A chronological overview of this service&apos;s stations.
@@ -240,6 +313,15 @@ export default async function Page({
                 <AlertDescription>
                   The following stops could not be mapped automatically and are
                   not shown on the map: {geocode.unmatched.join(", ")}
+                </AlertDescription>
+              </Alert>
+            )}
+            {!infrastructureUsed && geocode.unmatched.length === 0 && (
+              <Alert>
+                <AlertTitle>Infrastructure timetable unavailable</AlertTitle>
+                <AlertDescription>
+                  OpenRailwayMap infrastructure routing could not be completed
+                  for this train, so no route geometry is shown.
                 </AlertDescription>
               </Alert>
             )}
@@ -329,54 +411,28 @@ function StatCard({ label, value }: { label: string; value: string }) {
 async function geocodeStops(stops: string[]): Promise<GeocodeResult> {
   const results = await Promise.all(
     stops.map(async (stop) => {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=${encodeURIComponent(
-          `${stop} railway station`
-        )}`,
-        {
-          headers: {
-            Accept: "application/json",
-            "User-Agent": "vonatok-app/1.0 (train-builder@example.com)",
-          },
+      try {
+        const station = await findRailStationByName(stop);
+        if (!station) {
+          return { stop, data: null };
         }
-      );
 
-      if (!response.ok) {
+        return {
+          stop,
+          data: {
+            name: station.name,
+            originalName: stop,
+            latitude: station.latitude,
+            longitude: station.longitude,
+            displayName: station.displayName,
+            city: station.city,
+            country: station.country,
+          } satisfies GeocodedStop,
+        };
+      } catch (error) {
+        console.error("Rail station lookup failed", error);
         return { stop, data: null };
       }
-
-      const payload = (await response.json()) as NominatimResponse[];
-      const first = payload[0];
-      if (!first) {
-        return { stop, data: null };
-      }
-
-      const latitude = Number.parseFloat(first.lat);
-      const longitude = Number.parseFloat(first.lon);
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-        return { stop, data: null };
-      }
-
-      const city =
-        first.address?.city ??
-        first.address?.town ??
-        first.address?.village ??
-        first.address?.municipality ??
-        first.address?.county ??
-        undefined;
-
-      return {
-        stop,
-        data: {
-          name: first.name ?? stop,
-          originalName: stop,
-          latitude,
-          longitude,
-          displayName: first.display_name,
-          city,
-          country: first.address?.country ?? undefined,
-        } satisfies GeocodedStop,
-      };
     })
   );
 
@@ -394,96 +450,6 @@ async function geocodeStops(stops: string[]): Promise<GeocodeResult> {
   return { stations, unmatched };
 }
 
-async function buildRouteGeometry(
-  stations: GeocodedStop[]
-): Promise<RouteGeometryResult> {
-  if (stations.length < 2) {
-    return {
-      coordinates: stations.map(
-        (stop) => [stop.latitude, stop.longitude] as [number, number]
-      ),
-      distanceMeters: null,
-      durationSeconds: null,
-    };
-  }
-
-  const coordinates = stations
-    .map((stop) => `${stop.longitude},${stop.latitude}`)
-    .join(";");
-
-  try {
-    const response = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`,
-      {
-        headers: {
-          Accept: "application/json",
-          "User-Agent": "vonatok-app/1.0 (train-builder@example.com)",
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`OSRM request failed with status ${response.status}`);
-    }
-
-    const payload = (await response.json()) as OSRMResponse;
-    const route = payload.routes?.[0];
-    if (!route) {
-      throw new Error("No route geometry returned");
-    }
-
-    const geometry = route.geometry?.coordinates ?? [];
-    const polyline = geometry.map(
-      ([lon, lat]) => [lat, lon] as [number, number]
-    );
-
-    return {
-      coordinates: polyline,
-      distanceMeters: route.distance ?? null,
-      durationSeconds: route.duration ?? null,
-    };
-  } catch (error) {
-    console.error("Failed to fetch OSRM route", error);
-    return {
-      coordinates: stations.map(
-        (stop) => [stop.latitude, stop.longitude] as [number, number]
-      ),
-      distanceMeters: null,
-      durationSeconds: null,
-    };
-  }
-}
-
-function computeFallbackDistance(stations: GeocodedStop[]): number | null {
-  if (stations.length < 2) {
-    return null;
-  }
-
-  let total = 0;
-  for (let i = 0; i < stations.length - 1; i += 1) {
-    total += haversine(stations[i], stations[i + 1]);
-  }
-  return total;
-}
-
-function haversine(a: GeocodedStop, b: GeocodedStop): number {
-  const R = 6371; // km
-  const lat1 = toRadians(a.latitude);
-  const lat2 = toRadians(b.latitude);
-  const dLat = toRadians(b.latitude - a.latitude);
-  const dLon = toRadians(b.longitude - a.longitude);
-  const sinLat = Math.sin(dLat / 2);
-  const sinLon = Math.sin(dLon / 2);
-  const calc =
-    sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLon * sinLon;
-  const c = 2 * Math.atan2(Math.sqrt(calc), Math.sqrt(1 - calc));
-  return R * c;
-}
-
-function toRadians(value: number): number {
-  return (value * Math.PI) / 180;
-}
-
 function formatDuration(minutes: number): string {
   const hrs = Math.floor(minutes / 60);
   const mins = Math.round(minutes % 60);
@@ -491,133 +457,20 @@ function formatDuration(minutes: number): string {
   return `${hrs} h ${mins} min`;
 }
 
-interface NominatimResponse {
-  lat: string;
-  lon: string;
-  display_name: string;
-  name?: string;
-  address?: {
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-    county?: string;
-    country?: string;
-  };
+function formatLineReference(
+  line: NonNullable<
+    Awaited<ReturnType<typeof calculateRailTimetableFromInfrastructure>>
+  >["legPlans"][number]["lines"][number]
+): string {
+  const base = line.ref ?? line.name ?? `way ${line.wayId}`;
+  const track = line.trackRef ? `track ${line.trackRef}` : null;
+  return track ? `${base} (${track})` : base;
 }
 
-interface OSRMResponse {
-  routes?: Array<{
-    distance?: number;
-    duration?: number;
-    geometry?: {
-      coordinates?: [number, number][];
-    };
-  }>;
+function formatSwitch(
+  switchNode: NonNullable<
+    Awaited<ReturnType<typeof calculateRailTimetableFromInfrastructure>>
+  >["legPlans"][number]["switches"][number]
+): string {
+  return switchNode.ref ?? switchNode.name ?? `#${switchNode.nodeId}`;
 }
-// import { notFound } from "next/navigation";
-// import {
-//   getTrainById,
-//   getCoachesByIds,
-//   getLocomotiveById,
-// } from "@/lib/actions";
-// import { Header } from "@/components/header";
-// import { CoachDisplay } from "@/components/coach-display";
-// import { LocomotiveDisplay } from "@/components/locomotive-display";
-// import { Badge } from "@/components/ui/badge";
-// import { ArrowLeft } from "lucide-react";
-// import Link from "next/link";
-
-// // No need to define 'TrainDetailPageProps' explicitly anymore
-// export default async function TrainDetailPage({
-//   params,
-// }: {
-//   params: { id: string };
-// }) {
-//   const trainId = Number.parseInt(params.id);
-
-//   if (isNaN(trainId)) {
-//     return notFound();
-//   }
-
-//   const train = await getTrainById(trainId);
-
-//   if (!train) {
-//     return notFound();
-//   }
-
-//   const coaches = await getCoachesByIds(train.kocsiidk || []);
-//   const locomotive = await getLocomotiveById(train.mozdonyid);
-
-//   return (
-//     <div className="min-h-screen flex flex-col">
-//       <Header />
-//       <main className="flex-1 container mx-auto py-8 px-4">
-//         <Link
-//           href="/"
-//           className="flex items-center text-primary mb-6 hover:underline"
-//         >
-//           <ArrowLeft size={16} className="mr-2" />
-//           Back to Train List
-//         </Link>
-
-//         <h1 className="text-3xl font-bold mb-2">{train.megallok[0]}</h1>
-//         <p className="text-muted-foreground mb-8">Train ID: {train.vonatid}</p>
-
-//         <div className="mb-8">
-//           <h2 className="text-xl font-semibold mb-4">Stops</h2>
-//           <div className="flex flex-wrap gap-2">
-//             {train.megallok.map((stop, index) => (
-//               <Badge
-//                 key={index}
-//                 variant="outline"
-//                 className="text-base py-1 px-3"
-//               >
-//                 {index > 0 && "→ "}
-//                 {stop}
-//               </Badge>
-//             ))}
-//           </div>
-//         </div>
-
-//         <div className="flex w-full overflow-x-auto flex-row gap-0 py-10 items-end">
-//           {locomotive && (
-//             <img src={locomotive.imageurl || ""} alt={locomotive.mozdonyid} />
-//           )}
-//           {coaches.map((coach, index: number) => (
-//             <img
-//               key={`${index}.kocsi - ${coach.kocsiid}`}
-//               src={coach.imageurl || ""}
-//               alt={coach.kocsiid}
-//             />
-//           ))}
-//         </div>
-//         {locomotive && (
-//           <div className="mb-8">
-//             <h2 className="text-xl font-semibold mb-4">Locomotive</h2>
-//             <div className="max-w-md">
-//               <LocomotiveDisplay locomotive={locomotive} />
-//             </div>
-//           </div>
-//         )}
-
-//         <div className="mb-8">
-//           <h2 className="text-xl font-semibold mb-4">Coaches</h2>
-//           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-//             {coaches.map((coach, index) => (
-//               <CoachDisplay
-//                 key={`${index}.kocsi - ${coach.kocsiid} továbbiakban`}
-//                 coach={coach}
-//               />
-//             ))}
-//           </div>
-//         </div>
-//       </main>
-//       <footer className="bg-muted py-4 text-center text-sm">
-//         <div className="container mx-auto">
-//           &copy; {new Date().getFullYear()} Train Data Website
-//         </div>
-//       </footer>
-//     </div>
-//   );
-// }

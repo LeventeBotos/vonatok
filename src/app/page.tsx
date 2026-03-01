@@ -63,7 +63,7 @@ export default async function Home() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button asChild size="lg" className="shadow-lg shadow-primary/20">
-                  <Link href="/train/new">
+                  <Link href="/builder">
                     Design a composition
                     <ArrowRight className="h-5 w-5" aria-hidden="true" />
                   </Link>

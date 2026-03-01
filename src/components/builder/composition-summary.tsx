@@ -4,6 +4,7 @@ import type {
   Coach,
   Locomotive,
 } from "@/models";
+import type { RailLegPlan, RailStopPlan } from "@/lib/rail-infrastructure";
 import {
   CompositionMetrics,
   CompositionValidation,
@@ -27,6 +28,10 @@ export interface CompositionSummaryProps {
   validation: CompositionValidation;
   platformWarnings: PlatformWarning[];
   travelTime: TravelTimeSummary | null;
+  travelTimeLoading?: boolean;
+  travelTimeError?: string | null;
+  legPlans?: RailLegPlan[];
+  stopPlans?: RailStopPlan[];
 }
 
 export function CompositionSummary({
@@ -36,6 +41,10 @@ export function CompositionSummary({
   validation,
   platformWarnings,
   travelTime,
+  travelTimeLoading = false,
+  travelTimeError = null,
+  legPlans = [],
+  stopPlans = [],
 }: CompositionSummaryProps) {
   return (
     <Card className="h-full">
@@ -107,7 +116,16 @@ export function CompositionSummary({
           <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Journey estimate
           </h3>
-          {travelTime ? (
+          {travelTimeLoading ? (
+            <p className="text-sm text-muted-foreground">
+              Calculating timetable from OpenRailwayMap infrastructure...
+            </p>
+          ) : travelTimeError ? (
+            <Alert>
+              <AlertTitle>Infrastructure timetable unavailable</AlertTitle>
+              <AlertDescription>{travelTimeError}</AlertDescription>
+            </Alert>
+          ) : travelTime ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <MetricBlock
                 label="Distance"
@@ -122,11 +140,68 @@ export function CompositionSummary({
                 value={travelTime.averageSpeedKph.toFixed(1) + " km/h"}
               />
               <MetricBlock label="Intermediate stops" value={travelTime.stopCount.toString()} />
+              <MetricBlock
+                label="Data source"
+                value={formatDataSource(travelTime)}
+              />
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
               Select at least an origin and destination station to calculate travel time.
             </p>
+          )}
+        </section>
+
+        <Divider />
+
+        <section className="space-y-3">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Infrastructure route plan
+          </h3>
+          {legPlans.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Add and calculate a route to show track-level legs, switch counts, and platform guidance.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {legPlans.map((leg, index) => (
+                <div key={`${leg.fromName}-${leg.toName}-${index}`} className="rounded-lg border bg-card p-3 text-sm">
+                  <p className="font-medium">
+                    {index + 1}. {leg.fromName} → {leg.toName}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {(leg.distanceMeters / 1000).toFixed(2)} km · {Math.round(leg.runningTimeSeconds / 60)} min · {leg.switchCount} switches
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Station snap: {Math.round(leg.fromSnapDistanceMeters)} m / {Math.round(leg.toSnapDistanceMeters)} m
+                  </p>
+                  {leg.lines.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Lines: {leg.lines.map(formatLineReference).join(" | ")}
+                    </p>
+                  )}
+                  {leg.switches.length > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Switch nodes: {leg.switches.map((sw) => formatSwitch(sw)).join(", ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+
+              <div className="rounded-lg border bg-card p-3 text-sm">
+                <p className="font-medium mb-2">Platform guidance</p>
+                <div className="space-y-1">
+                  {stopPlans.map((stop) => (
+                    <p key={stop.stopName} className="text-muted-foreground">
+                      {stop.stopName}: {stop.likelyPlatform ? `likely platform ${stop.likelyPlatform}` : "no platform data"}
+                      {typeof stop.snapDistanceMeters === "number"
+                        ? ` · snapped ${Math.round(stop.snapDistanceMeters)} m`
+                        : ""}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
         </section>
 
@@ -178,4 +253,21 @@ function formatDuration(minutes: number): string {
 
 function Divider() {
   return <div className="h-px w-full bg-border" />;
+}
+
+function formatDataSource(summary: TravelTimeSummary): string {
+  if (summary.dataSource === "openrailwaymap") {
+    return summary.brakingCurveApplied ? "OpenRailwayMap + braking" : "OpenRailwayMap";
+  }
+  return "Heuristic estimate";
+}
+
+function formatLineReference(line: RailLegPlan["lines"][number]): string {
+  const base = line.ref ?? line.name ?? `way ${line.wayId}`;
+  const track = line.trackRef ? `track ${line.trackRef}` : null;
+  return track ? `${base} (${track})` : base;
+}
+
+function formatSwitch(switchNode: RailLegPlan["switches"][number]): string {
+  return switchNode.ref ?? switchNode.name ?? `#${switchNode.nodeId}`;
 }

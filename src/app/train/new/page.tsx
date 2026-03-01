@@ -42,6 +42,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TrainRouteMap } from "@/components/train-route-map";
 import type { Station } from "@/models";
+import Link from "next/link";
 
 interface StationSearchResult {
   id: string;
@@ -62,24 +63,17 @@ interface RouteEntry {
   country?: string;
 }
 
-interface NominatimResponse {
-  osm_id: number;
-  osm_type: string;
-  display_name: string;
-  lat: string;
-  lon: string;
-  class: string;
-  type: string;
-  address?: {
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-    state?: string;
-    county?: string;
-    country?: string;
-  };
-  name?: string;
+interface RailStationApiResult {
+  name: string;
+  latitude: number;
+  longitude: number;
+  displayName: string;
+  city?: string;
+  country?: string;
+}
+
+interface RailStationSearchApiResponse {
+  stations?: RailStationApiResult[];
 }
 
 export default function TrainCompositionMaker() {
@@ -138,24 +132,16 @@ export default function TrainCompositionMaker() {
         setIsSearchingStations(true);
         setStationSearchError("");
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&q=${encodeURIComponent(
-            stationQuery
-          )}`,
+          `/api/rail/stations?query=${encodeURIComponent(stationQuery)}&limit=8`,
           {
-            headers: {
-              Accept: "application/json",
-              "User-Agent": "vonatok-app/1.0 (train-builder@example.com)",
-            },
             signal: controller.signal,
           }
         );
         if (!response.ok) {
           throw new Error(`Station search failed with status ${response.status}`);
         }
-        const payload = (await response.json()) as NominatimResponse[];
-        const mapped = payload
-          .map(mapNominatimToResult)
-          .filter((item): item is StationSearchResult => item !== null);
+        const payload = (await response.json()) as RailStationSearchApiResponse;
+        const mapped = (payload.stations ?? []).map(mapRailStationToResult);
         setStationResults(mapped);
       } catch (fetchError) {
         if (controller.signal.aborted) return;
@@ -392,6 +378,16 @@ export default function TrainCompositionMaker() {
             Assemble locomotives and coaches, plan the full route with live mapping, and review operational limits before creating your train.
           </p>
         </div>
+
+        <Alert className="border-primary/30 bg-primary/5">
+          <AlertTitle>New planner available</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            The "Calculate Perfect Route" flow is on the new builder page.
+            <Button asChild size="sm" variant="secondary">
+              <Link href="/builder">Open New Builder</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
 
         {error && (
           <Alert variant="destructive" className="shadow-lg">
@@ -828,32 +824,15 @@ export default function TrainCompositionMaker() {
   );
 }
 
-function mapNominatimToResult(item: NominatimResponse): StationSearchResult | null {
-  const latitude = Number.parseFloat(item.lat);
-  const longitude = Number.parseFloat(item.lon);
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  const primaryName = (item.name ?? item.display_name.split(",")[0] ?? "").trim();
-  if (!primaryName) return null;
-
-  const city =
-    item.address?.city ??
-    item.address?.town ??
-    item.address?.village ??
-    item.address?.municipality ??
-    item.address?.county ??
-    undefined;
-
+function mapRailStationToResult(item: RailStationApiResult): StationSearchResult {
   return {
-    id: `${item.osm_type}-${item.osm_id}`,
-    name: primaryName,
-    displayName: item.display_name,
-    latitude,
-    longitude,
-    city,
-    country: item.address?.country ?? undefined,
+    id: `${item.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${item.latitude.toFixed(5)}-${item.longitude.toFixed(5)}`,
+    name: item.name,
+    displayName: item.displayName,
+    latitude: item.latitude,
+    longitude: item.longitude,
+    city: item.city,
+    country: item.country,
   };
 }
 

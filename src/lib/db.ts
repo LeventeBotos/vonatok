@@ -31,6 +31,7 @@ export interface Coach {
   sebesseg: number;
   klima: boolean;
   ulohelyek: string;
+  biciklihelyek: number | null;
 }
 
 export interface Locomotive {

@@ -43,10 +43,10 @@ export function Header() {
             <Menu className="h-5 w-5" aria-hidden="true" />
           </Button>
           <Button asChild size="sm">
-            <Link href="/train/new">
+            <Link href="/builder">
               <Plus className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">New Train</span>
-              <span className="sm:hidden">Create</span>
+              <span className="hidden sm:inline">Route Builder</span>
+              <span className="sm:hidden">Build</span>
             </Link>
           </Button>
         </div>

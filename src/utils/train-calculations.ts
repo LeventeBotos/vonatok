@@ -23,6 +23,8 @@ export interface TravelTimeSummary {
   estimatedDurationMinutes: number;
   averageSpeedKph: number;
   stopCount: number;
+  dataSource?: "heuristic" | "openrailwaymap";
+  brakingCurveApplied?: boolean;
 }
 
 export interface TravelTimeOptions {
@@ -162,6 +164,8 @@ export function estimateTravelTime(
     estimatedDurationMinutes,
     averageSpeedKph,
     stopCount: Math.max(route.length - 2, 0),
+    dataSource: "heuristic",
+    brakingCurveApplied: false,
   };
 }
 
